@@ -115,3 +115,7 @@ def generate_all_symbols(
                 'components': {}, 'weights': {}, 'actionable': False,
             }
     return results
+
+# Alias for compatibility
+get_ensemble_signal = generate_ensemble_signal
+

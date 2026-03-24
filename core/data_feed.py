@@ -27,7 +27,7 @@ class DataFeed:
 
     def __init__(self):
         """Initialise the ccxt Binance exchange connector and cache."""
-        self.exchange = ccxt.binance({
+        self.exchange = ccxt.kucoin({
             'enableRateLimit': EXCHANGE_RATE_LIMIT,
             'options': {'defaultType': 'spot'},
         })

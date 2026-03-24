@@ -152,3 +152,7 @@ def validate_indicators(row: pd.Series) -> bool:
             logger.debug("Missing/NaN indicator: %s", col)
             return False
     return True
+
+# Alias for compatibility
+add_indicators = calculate_indicators
+

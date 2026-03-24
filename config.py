@@ -10,7 +10,7 @@ TIMEFRAMES = ['15m', '1h', '4h']
 PRIMARY_TIMEFRAME = '1h'
 
 # Binance exchange settings
-EXCHANGE_ID = 'binance'
+EXCHANGE_ID = 'kucoin'
 EXCHANGE_RATE_LIMIT = True
 
 # ─── Risk Management ───────────────────────────────────────────────────────────
