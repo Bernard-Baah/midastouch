@@ -1,135 +1,291 @@
 """
-MidasTouch — Paper Trading Engine
-Simulates trades with $1,000 virtual capital. Logs all trades to SQLite.
+MidasTouch - Paper Trading Engine
+Simulates live trading with virtual capital starting at $1,000.
+All trades are logged to SQLite. Tracks cash balance, open positions, drawdown.
 """
 
-import sqlite3
+import logging
 import os
-from datetime import datetime
+from datetime import datetime, timezone
+from typing import Dict, List, Optional, Tuple
+
+from sqlalchemy import create_engine, Column, Integer, Float, String, DateTime
+from sqlalchemy.orm import declarative_base, Session
+
+from config import INITIAL_CAPITAL, DATABASE_URL
+
+logger = logging.getLogger(__name__)
+
+Base = declarative_base()
 
 
-DB_PATH = os.path.join(os.path.dirname(__file__), '..', 'data', 'trades.db')
+class TradeRecord(Base):
+    """SQLAlchemy model for a single trade."""
 
+    __tablename__ = 'trades'
 
-def _get_conn():
-    os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
-    conn = sqlite3.connect(DB_PATH)
-    conn.execute('''
-        CREATE TABLE IF NOT EXISTS trades (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            timestamp TEXT,
-            symbol TEXT,
-            direction TEXT,
-            entry_price REAL,
-            exit_price REAL,
-            size_usdt REAL,
-            stop_loss REAL,
-            pnl REAL,
-            pnl_pct REAL,
-            reason TEXT,
-            status TEXT
-        )
-    ''')
-    conn.commit()
-    return conn
+    id           = Column(Integer, primary_key=True, autoincrement=True)
+    timestamp    = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    symbol       = Column(String(20), nullable=False)
+    direction    = Column(String(10), nullable=False)
+    entry_price  = Column(Float, nullable=False)
+    exit_price   = Column(Float, nullable=True)
+    size_usdt    = Column(Float, nullable=False)
+    pnl          = Column(Float, nullable=True)
+    pnl_pct      = Column(Float, nullable=True)
+    stop_loss    = Column(Float, nullable=True)
+    reason       = Column(String(100), nullable=True)
+    status       = Column(String(10), default='open')
+    regime       = Column(String(20), nullable=True)
+    signal_score = Column(Float, nullable=True)
+
+    def __repr__(self) -> str:
+        return f"<Trade id={self.id} {self.symbol} {self.direction} pnl={self.pnl}>"
 
 
 class PaperTrader:
-    def __init__(self, initial_capital=1000.0):
-        self.cash = initial_capital
-        self.initial_capital = initial_capital
-        self.peak_capital = initial_capital
-        self.positions = {}  # symbol -> {size, entry_price, stop_loss, size_usdt}
-        self.trade_count = 0
-        self.conn = _get_conn()
+    """
+    Paper trading engine with full position tracking and SQLite trade logging.
+
+    Attributes:
+        cash:         Available USDT
+        positions:    Dict symbol -> open position dict
+        peak_capital: Highest portfolio value seen (for drawdown)
+    """
+
+    def __init__(self, db_url: str = DATABASE_URL):
+        """
+        Initialise the paper trader and create/migrate the trade database.
+
+        Args:
+            db_url: SQLAlchemy database URL
+        """
+        if db_url.startswith('sqlite:///'):
+            db_path = db_url[len('sqlite:///'):]
+            os.makedirs(os.path.dirname(os.path.abspath(db_path)), exist_ok=True)
+
+        self.engine  = create_engine(db_url, echo=False)
+        Base.metadata.create_all(self.engine)
+
+        self.cash: float         = INITIAL_CAPITAL
+        self.positions: Dict     = {}
+        self.peak_capital: float = INITIAL_CAPITAL
+        self._trade_count        = 0
+
+        logger.info("PaperTrader ready — capital=$%.2f | db=%s", self.cash, db_url)
+
+    # ──────────────────────────────────────────────────────────────────────────
 
     @property
-    def total_capital(self):
-        """Cash + value of open positions."""
-        pos_value = sum(
-            p['size'] * p['entry_price'] for p in self.positions.values()
-        )
-        return self.cash + pos_value
+    def portfolio_value(self) -> float:
+        """Cash + mark-to-market open positions."""
+        return self.cash + sum(p['current_value'] for p in self.positions.values())
 
     @property
-    def drawdown(self):
-        total = self.total_capital
-        if total > self.peak_capital:
-            self.peak_capital = total
-        return (self.peak_capital - total) / self.peak_capital
+    def drawdown(self) -> float:
+        """Current drawdown as fraction of peak capital."""
+        pv = self.portfolio_value
+        self.peak_capital = max(self.peak_capital, pv)
+        return max(0.0, (self.peak_capital - pv) / self.peak_capital) if self.peak_capital > 0 else 0.0
 
-    def execute_buy(self, symbol, size_usdt, price, stop_loss, reason='signal'):
-        """Open a long position."""
+    def update_position_prices(self, symbol: str, current_price: float) -> None:
+        """Update mark-to-market value for an open position."""
         if symbol in self.positions:
-            return False, 'Already in position'
+            pos = self.positions[symbol]
+            pos['current_price']  = current_price
+            pos['current_value']  = pos['qty'] * current_price
+            pos['unrealised_pnl'] = pos['current_value'] - pos['size_usdt']
+
+    def execute_buy(
+        self,
+        symbol: str,
+        size_usdt: float,
+        price: float,
+        stop_loss: float,
+        regime: str = 'unknown',
+        signal_score: float = 0.0,
+        reason: str = 'signal',
+    ) -> Optional[Dict]:
+        """
+        Execute a paper buy order.
+
+        Args:
+            symbol:       Trading pair
+            size_usdt:    Position size in USDT
+            price:        Entry price
+            stop_loss:    Stop-loss trigger price
+            regime:       Market regime at entry
+            signal_score: Ensemble signal score
+            reason:       Trade reason string
+
+        Returns:
+            Position dict or None if rejected
+        """
+        if symbol in self.positions:
+            logger.warning("Already have position for %s", symbol)
+            return None
         if size_usdt > self.cash:
-            return False, 'Insufficient cash'
+            size_usdt = self.cash * 0.99
+        if size_usdt <= 0 or price <= 0:
+            return None
 
-        units = size_usdt / price
+        qty = size_usdt / price
         self.cash -= size_usdt
-        self.positions[symbol] = {
-            'size': units,
-            'entry_price': price,
-            'stop_loss': stop_loss,
-            'size_usdt': size_usdt,
-            'open_time': datetime.utcnow().isoformat(),
+
+        position = {
+            'symbol':        symbol,
+            'direction':     'buy',
+            'entry_price':   price,
+            'qty':           qty,
+            'size_usdt':     size_usdt,
+            'stop_loss':     stop_loss,
+            'current_price': price,
+            'current_value': size_usdt,
+            'unrealised_pnl': 0.0,
+            'entry_time':    datetime.now(timezone.utc),
+            'regime':        regime,
+            'signal_score':  signal_score,
         }
+        self.positions[symbol] = position
 
-        self.conn.execute('''
-            INSERT INTO trades (timestamp, symbol, direction, entry_price, size_usdt, stop_loss, reason, status)
-            VALUES (?, ?, 'buy', ?, ?, ?, ?, 'open')
-        ''', (datetime.utcnow().isoformat(), symbol, price, size_usdt, stop_loss, reason))
-        self.conn.commit()
-        self.trade_count += 1
-        print(f"  [PAPER BUY]  {symbol} @ {price:.4f} | Size: ${size_usdt:.2f} | SL: {stop_loss:.4f}")
-        return True, 'OK'
-
-    def execute_sell(self, symbol, price, reason='signal'):
-        """Close a long position."""
-        if symbol not in self.positions:
-            return False, 'No open position'
-
-        pos = self.positions.pop(symbol)
-        proceeds = pos['size'] * price
-        pnl = proceeds - pos['size_usdt']
-        pnl_pct = pnl / pos['size_usdt'] * 100
-        self.cash += proceeds
-
-        self.conn.execute('''
-            UPDATE trades SET exit_price=?, pnl=?, pnl_pct=?, status='closed', reason=?
-            WHERE symbol=? AND status='open'
-        ''', (price, pnl, pnl_pct, reason, symbol))
-        self.conn.commit()
-
-        emoji = '✅' if pnl >= 0 else '❌'
-        print(f"  [PAPER SELL] {symbol} @ {price:.4f} | PnL: ${pnl:.2f} ({pnl_pct:.1f}%) {emoji}")
-        return True, pnl
-
-    def check_stop_losses(self, current_prices):
-        """Check and trigger stop losses for open positions."""
-        for symbol, pos in list(self.positions.items()):
-            price = current_prices.get(symbol)
-            if price and price <= pos['stop_loss']:
-                self.execute_sell(symbol, price, reason='stop_loss')
-
-    def get_open_positions(self):
-        return dict(self.positions)
-
-    def get_trade_history(self, limit=50):
-        cur = self.conn.execute(
-            'SELECT * FROM trades ORDER BY id DESC LIMIT ?', (limit,)
+        self._log_trade(
+            symbol=symbol, direction='buy', entry_price=price,
+            size_usdt=size_usdt, stop_loss=stop_loss, reason=reason,
+            regime=regime, signal_score=signal_score, status='open',
         )
-        cols = [d[0] for d in cur.description]
-        return [dict(zip(cols, row)) for row in cur.fetchall()]
+        self._trade_count += 1
+        logger.info("BUY %s qty=%.6f @ %.4f size=$%.2f stop=%.4f cash=$%.2f",
+                    symbol, qty, price, size_usdt, stop_loss, self.cash)
+        return position
 
-    def summary(self):
-        total = self.total_capital
-        return {
-            'cash': round(self.cash, 2),
-            'total_capital': round(total, 2),
-            'initial_capital': self.initial_capital,
-            'total_return_pct': round((total - self.initial_capital) / self.initial_capital * 100, 2),
-            'drawdown_pct': round(self.drawdown * 100, 2),
-            'open_positions': len(self.positions),
-            'total_trades': self.trade_count,
+    def execute_sell(
+        self,
+        symbol: str,
+        price: float,
+        reason: str = 'signal',
+    ) -> Optional[Dict]:
+        """
+        Close an open long position.
+
+        Args:
+            symbol: Trading pair
+            price:  Exit price
+            reason: Closure reason
+
+        Returns:
+            Trade result dict or None
+        """
+        if symbol not in self.positions:
+            logger.warning("No position for %s", symbol)
+            return None
+
+        pos        = self.positions.pop(symbol)
+        exit_value = pos['qty'] * price
+        pnl        = exit_value - pos['size_usdt']
+        pnl_pct    = (pnl / pos['size_usdt']) * 100 if pos['size_usdt'] > 0 else 0.0
+        self.cash += exit_value
+
+        self._close_trade(symbol=symbol, exit_price=price, pnl=pnl, pnl_pct=pnl_pct, reason=reason)
+
+        result = {
+            'symbol': symbol, 'entry_price': pos['entry_price'],
+            'exit_price': price, 'size_usdt': pos['size_usdt'],
+            'pnl': pnl, 'pnl_pct': pnl_pct, 'reason': reason,
         }
+        logger.info("SELL %s qty=%.6f @ %.4f pnl=$%.2f (%.2f%%) cash=$%.2f reason=%s",
+                    symbol, pos['qty'], price, pnl, pnl_pct, self.cash, reason)
+        return result
+
+    def check_stop_losses(self, symbol: str, current_price: float) -> bool:
+        """Trigger stop-loss if price has hit the threshold."""
+        if symbol not in self.positions:
+            return False
+        stop = self.positions[symbol].get('stop_loss')
+        if stop and current_price <= stop:
+            logger.warning("STOP-LOSS hit %s price=%.4f stop=%.4f", symbol, current_price, stop)
+            self.execute_sell(symbol, current_price, reason='stop_loss')
+            return True
+        return False
+
+    def close_all_positions(self, prices: Dict[str, float], reason: str = 'kill_switch') -> None:
+        """Emergency close all open positions."""
+        for symbol in list(self.positions.keys()):
+            price = prices.get(symbol, self.positions[symbol]['current_price'])
+            self.execute_sell(symbol, price, reason=reason)
+
+    def get_status(self) -> Dict:
+        """Return portfolio snapshot."""
+        pv = self.portfolio_value
+        return {
+            'cash':              round(self.cash, 2),
+            'portfolio_value':   round(pv, 2),
+            'peak_capital':      round(self.peak_capital, 2),
+            'drawdown_pct':      round(self.drawdown * 100, 2),
+            'open_positions':    len(self.positions),
+            'total_trades':      self._trade_count,
+            'total_return_pct':  round(((pv - INITIAL_CAPITAL) / INITIAL_CAPITAL) * 100, 2),
+        }
+
+    def get_trade_history(self, limit: int = 50) -> List[Dict]:
+        """Return recent closed trades from the database."""
+        try:
+            with Session(self.engine) as session:
+                records = (
+                    session.query(TradeRecord)
+                    .filter_by(status='closed')
+                    .order_by(TradeRecord.id.desc())
+                    .limit(limit)
+                    .all()
+                )
+                return [
+                    {
+                        'id':           r.id,
+                        'timestamp':    r.timestamp.isoformat() if r.timestamp else None,
+                        'symbol':       r.symbol,
+                        'direction':    r.direction,
+                        'entry_price':  r.entry_price,
+                        'exit_price':   r.exit_price,
+                        'size_usdt':    r.size_usdt,
+                        'pnl':          r.pnl,
+                        'pnl_pct':      r.pnl_pct,
+                        'reason':       r.reason,
+                        'regime':       r.regime,
+                        'signal_score': r.signal_score,
+                    }
+                    for r in records
+                ]
+        except Exception as exc:
+            logger.error("Failed to fetch trade history: %s", exc)
+            return []
+
+    # ── DB helpers ────────────────────────────────────────────────────────────
+
+    def _log_trade(self, **kwargs) -> None:
+        """Insert a new trade record."""
+        try:
+            with Session(self.engine) as session:
+                session.add(TradeRecord(**kwargs))
+                session.commit()
+        except Exception as exc:
+            logger.error("Failed to log trade: %s", exc)
+
+    def _close_trade(self, symbol: str, exit_price: float,
+                     pnl: float, pnl_pct: float, reason: str) -> None:
+        """Update the open trade record with exit data."""
+        try:
+            with Session(self.engine) as session:
+                record = (
+                    session.query(TradeRecord)
+                    .filter_by(symbol=symbol, status='open')
+                    .order_by(TradeRecord.id.desc())
+                    .first()
+                )
+                if record:
+                    record.exit_price = exit_price
+                    record.pnl        = pnl
+                    record.pnl_pct    = pnl_pct
+                    record.reason     = reason
+                    record.status     = 'closed'
+                    session.commit()
+        except Exception as exc:
+            logger.error("Failed to close trade record: %s", exc)

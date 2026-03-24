@@ -1,0 +1,4 @@
+__pycache__/
+*.pyc
+data/test_trades.db
+.env
