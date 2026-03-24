@@ -31,7 +31,7 @@ def print_header():
 def run():
     print_header()
     feed = DataFeed()
-    trader = PaperTrader(initial_capital=INITIAL_CAPITAL)
+    trader = PaperTrader()
     risk = RiskManager()
     kill_switch = False
     loop = 0
@@ -48,18 +48,18 @@ def run():
         print(f"\n[Loop {loop}] {now}")
 
         # Check kill switch
-        summary = trader.summary()
-        if risk.check_drawdown(summary['total_capital'], trader.peak_capital):
-            print(f"\n🚨 KILL SWITCH TRIGGERED — Drawdown exceeded {MAX_DRAWDOWN_LIMIT*100:.0f}%")
-            print(f"   Capital: ${summary['total_capital']:.2f} (started ${INITIAL_CAPITAL:.2f})")
+        status = trader.get_status()
+        total_capital = status['cash'] + sum(
+            p.get('current_value', p['size_usdt']) for p in trader.positions.values()
+        )
+        if risk.check_drawdown(total_capital, trader.peak_capital):
+            print(f"\n🚨 KILL SWITCH — Drawdown exceeded {MAX_DRAWDOWN_LIMIT*100:.0f}%")
+            print(f"   Capital: ${total_capital:.2f}")
             kill_switch = True
             break
 
-        current_prices = {}
-
         for symbol in SYMBOLS:
             try:
-                # Fetch data
                 df = feed.fetch_ohlcv(symbol, PRIMARY_TIMEFRAME, limit=200)
                 if df is None or len(df) < 50:
                     print(f"  ⚠️  {symbol}: insufficient data")
@@ -73,44 +73,47 @@ def run():
                     continue
 
                 current_price = df['close'].iloc[-1]
-                current_prices[symbol] = current_price
-
-                # Detect regime
                 regime = detect_regime(df)
-
-                # Generate signal
                 signal = generate_ensemble_signal(df, regime)
 
-                print(f"  {symbol}: ${current_price:.2f} | Regime: {regime} | Signal: {signal['direction']} ({signal['score']:.2f})")
+                print(f"  {symbol}: ${current_price:.2f} | {regime} | {signal['direction']} ({signal['score']:.2f})")
 
-                # Execute trades
+                # Check stop loss for this symbol
+                trader.check_stop_losses(symbol, current_price)
+
+                # Buy signal
                 if signal['direction'] == 'buy' and symbol not in trader.positions:
                     atr = df['atr_14'].iloc[-1] if 'atr_14' in df.columns else current_price * 0.02
-                    size = risk.calculate_position_size(
-                        trader.cash, atr, signal['score'], regime
-                    )
+                    size = risk.calculate_position_size(trader.cash, atr, signal['score'], regime)
                     if size > 10:
                         stop = risk.calculate_stop_loss(current_price, atr, 'buy')
-                        trader.execute_buy(symbol, size, current_price, stop,
-                                         reason=f"ensemble_{signal['score']:.2f}")
+                        trader.execute_buy(
+                            symbol=symbol,
+                            size_usdt=size,
+                            price=current_price,
+                            stop_loss=stop,
+                            regime=regime,
+                            signal_score=signal['score'],
+                            reason=f"ensemble_{signal['score']:.2f}"
+                        )
 
+                # Sell signal
                 elif signal['direction'] == 'sell' and symbol in trader.positions:
-                    trader.execute_sell(symbol, current_price,
-                                       reason=f"ensemble_{signal['score']:.2f}")
+                    trader.execute_sell(symbol, current_price, reason=f"ensemble_{signal['score']:.2f}")
 
             except Exception as e:
-                print(f"  ❌ Error processing {symbol}: {e}")
-                import traceback
-                traceback.print_exc()
+                print(f"  ❌ {symbol}: {e}")
+                import traceback; traceback.print_exc()
 
-        # Check stop losses
-        if current_prices:
-            trader.check_stop_losses(current_prices)
+        # Summary
+        status = trader.get_status()
+        cash = status['cash']
+        total = cash + sum(p['size_usdt'] for p in trader.positions.values())
+        ret_pct = (total - INITIAL_CAPITAL) / INITIAL_CAPITAL * 100
+        dd_pct = status.get('drawdown_pct', 0) * 100
 
-        # Print portfolio summary
-        summary = trader.summary()
-        print(f"\n  📊 Capital: ${summary['total_capital']:.2f} | Return: {summary['total_return_pct']:+.2f}% | Drawdown: {summary['drawdown_pct']:.1f}%")
-        print(f"  Positions: {summary['open_positions']} open | Trades: {summary['total_trades']} total")
+        print(f"\n  📊 Capital: ${total:.2f} | Return: {ret_pct:+.2f}% | Drawdown: {dd_pct:.1f}%")
+        print(f"  Positions: {len(trader.positions)} open | Cash: ${cash:.2f}")
 
         if loop % 12 == 0:
             perf = calculate_all()

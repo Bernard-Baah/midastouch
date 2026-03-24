@@ -180,3 +180,27 @@ def _empty_metrics(initial_capital: float) -> Dict:
         'max_drawdown_pct':   0.0,
         'equity_curve':       [initial_capital],
     }
+
+# Alias for compatibility
+def calculate_all():
+    from core.paper_trader import PaperTrader
+    import sqlite3, os
+    db = os.path.join(os.path.dirname(__file__), '..', 'data', 'trades.db')
+    if not os.path.exists(db):
+        return {'total_trades': 0, 'win_rate': 0, 'profit_factor': 0, 'sharpe': 0, 'sortino': 0, 'total_pnl': 0}
+    conn = sqlite3.connect(db)
+    cur = conn.execute("SELECT pnl FROM trades WHERE status='closed'")
+    pnls = [r[0] for r in cur.fetchall()]
+    if not pnls:
+        return {'total_trades': 0, 'win_rate': 0, 'profit_factor': 0, 'sharpe': 0, 'sortino': 0, 'total_pnl': 0}
+    wins = [p for p in pnls if p > 0]
+    losses = [p for p in pnls if p <= 0]
+    profit_factor = sum(wins) / abs(sum(losses)) if losses else 0
+    return {
+        'total_trades': len(pnls),
+        'win_rate': round(len(wins)/len(pnls)*100, 1),
+        'profit_factor': round(profit_factor, 2),
+        'total_pnl': round(sum(pnls), 2),
+        'sharpe': 0, 'sortino': 0,
+    }
+
