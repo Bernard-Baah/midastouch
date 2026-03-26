@@ -14,7 +14,7 @@ EXCHANGE_ID = 'kucoin'
 EXCHANGE_RATE_LIMIT = True
 
 # ─── Risk Management ───────────────────────────────────────────────────────────
-MIN_RISK_PER_TRADE = 0.005   # 0.5% minimum risk per trade
+MIN_RISK_PER_TRADE = 0.02   # 2% minimum risk per trade
 MAX_RISK_PER_TRADE = 0.07    # 7% maximum risk per trade
 MAX_DRAWDOWN_LIMIT = 0.15    # 15% drawdown kill-switch
 RESERVE_CAPITAL_PCT = 0.20   # Keep 20% in reserve always
@@ -22,7 +22,7 @@ MAX_CAPITAL_PER_TRADE = 0.80 # Never exceed 80% of available capital
 STOP_LOSS_ATR_MULT = 1.5     # Stop-loss = 1.5x ATR from entry
 
 # ─── Signal Thresholds ─────────────────────────────────────────────────────────
-MIN_SIGNAL_STRENGTH = 0.6    # Minimum ensemble score to trade
+MIN_SIGNAL_STRENGTH = 0.05  # Lowered for more aggressive trading
 
 # ─── Indicator Periods ─────────────────────────────────────────────────────────
 EMA_PERIODS = [9, 21, 50, 200]
