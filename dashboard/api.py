@@ -1,22 +1,22 @@
 """
-MidasTouch - FastAPI Dashboard
-Provides REST endpoints for monitoring the bot in real-time.
-Runs independently of the main bot loop; reads from the shared paper_trader instance.
+MidasTouch — FastAPI Dashboard
+Run with: uvicorn dashboard.api:app --host 0.0.0.0 --port 8000
 """
 
-import logging
-from typing import Optional
-
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse, HTMLResponse
+import sqlite3
+import os
+import sys
 
-logger = logging.getLogger(__name__)
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+from core.performance import calculate_all
 
-app = FastAPI(
-    title="MidasTouch Trading Bot Dashboard",
-    description="Real-time monitoring API for the MidasTouch algorithmic trading bot",
-    version="1.0.0",
-)
+DB_PATH = os.path.join(os.path.dirname(__file__), '..', 'data', 'trades.db')
+HTML_PATH = os.path.join(os.path.dirname(__file__), 'index.html')
+
+app = FastAPI(title="MidasTouch Dashboard", version="1.0.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -25,167 +25,100 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# ─── Global State ─────────────────────────────────────────────────────────────
-# These are injected by main.py before starting the server.
-_paper_trader   = None
-_data_feed      = None
-_last_signals   = {}     # symbol → signal dict
-_bot_running    = False
+_bot_state = {
+    'status': 'running',
+    'cash': 1000.0,
+    'portfolio_value': 1000.0,
+    'drawdown_pct': 0.0,
+    'open_positions': 0,
+    'positions': {},
+    'current_signals': {},
+}
 
 
-def inject_dependencies(paper_trader, data_feed, bot_running_flag: dict) -> None:
-    """
-    Inject shared objects from the main bot loop into the API.
-
-    Call this from main.py before launching uvicorn.
-
-    Args:
-        paper_trader:     PaperTrader instance
-        data_feed:        DataFeed instance
-        bot_running_flag: Mutable dict with key 'running' (bool)
-    """
-    global _paper_trader, _data_feed, _bot_running
-    _paper_trader = paper_trader
-    _data_feed    = data_feed
-    _bot_running  = bot_running_flag
-    logger.info("Dashboard dependencies injected")
+def update_state(state: dict):
+    _bot_state.update(state)
 
 
-def update_signals(signals: dict) -> None:
-    """
-    Update the cached signals displayed by GET /signals.
-
-    Args:
-        signals: Dict of symbol → signal dict (from signals.generate_all_symbols)
-    """
-    global _last_signals
-    _last_signals = signals
+@app.get("/", response_class=HTMLResponse)
+def dashboard():
+    if os.path.exists(HTML_PATH):
+        return FileResponse(HTML_PATH)
+    return HTMLResponse("<h1>MidasTouch Dashboard</h1><p>UI not found.</p>")
 
 
-# ─── Endpoints ────────────────────────────────────────────────────────────────
-
-@app.get("/status", tags=["Bot"])
-def get_status() -> dict:
-    """
-    Return overall bot health, capital snapshot, and drawdown.
-
-    Returns:
-        JSON with running status, capital, drawdown, and position count.
-    """
-    if _paper_trader is None:
-        return {
-            "running":         False,
-            "capital":         0,
-            "drawdown_pct":    0,
-            "open_positions":  0,
-            "message":         "Bot not initialised",
-        }
-
-    status = _paper_trader.get_status()
-    running_state = _bot_running.get('running', False) if isinstance(_bot_running, dict) else _bot_running
-    status['running'] = running_state
-    return status
-
-
-@app.get("/positions", tags=["Portfolio"])
-def get_positions() -> dict:
-    """
-    Return all currently open positions.
-
-    Returns:
-        JSON dict of symbol → position details.
-    """
-    if _paper_trader is None:
-        return {"positions": {}}
-
+@app.get("/status")
+def get_status():
+    if not os.path.exists(DB_PATH):
+        return _bot_state
+    conn = sqlite3.connect(DB_PATH)
+    # Get open positions
+    cur = conn.execute("SELECT symbol, entry_price, size_usdt, stop_loss, regime FROM trades WHERE status='open'")
     positions = {}
-    for symbol, pos in _paper_trader.positions.items():
-        positions[symbol] = {
-            "symbol":          pos.get("symbol"),
-            "direction":       pos.get("direction"),
-            "entry_price":     pos.get("entry_price"),
-            "qty":             pos.get("qty"),
-            "size_usdt":       pos.get("size_usdt"),
-            "current_price":   pos.get("current_price"),
-            "current_value":   pos.get("current_value"),
-            "unrealised_pnl":  pos.get("unrealised_pnl"),
-            "stop_loss":       pos.get("stop_loss"),
-            "regime":          pos.get("regime"),
-            "signal_score":    pos.get("signal_score"),
-            "entry_time":      pos.get("entry_time").isoformat() if pos.get("entry_time") else None,
+    for row in cur.fetchall():
+        positions[row[0]] = {
+            'entry_price': row[1],
+            'size_usdt': row[2],
+            'stop_loss': row[3],
+            'regime': row[4],
         }
-
-    return {"positions": positions, "count": len(positions)}
-
-
-@app.get("/trades", tags=["Portfolio"])
-def get_trades(limit: int = 50) -> dict:
-    """
-    Return recent closed trade history.
-
-    Args:
-        limit: Maximum number of records to return (default 50, max 200)
-
-    Returns:
-        JSON with list of trade records.
-    """
-    if _paper_trader is None:
-        return {"trades": [], "count": 0}
-
-    limit  = min(limit, 200)
-    trades = _paper_trader.get_trade_history(limit=limit)
-    return {"trades": trades, "count": len(trades)}
-
-
-@app.get("/performance", tags=["Analytics"])
-def get_performance() -> dict:
-    """
-    Return full performance metrics calculated from closed trade history.
-
-    Returns:
-        JSON with Sharpe, Sortino, win rate, drawdown, P&L, and more.
-    """
-    if _paper_trader is None:
-        return {"error": "Bot not initialised"}
-
-    from core.performance import calculate_performance
-    trades  = _paper_trader.get_trade_history(limit=10000)
-    metrics = calculate_performance(trades)
-    return metrics
-
-
-@app.get("/signals", tags=["Trading"])
-def get_signals() -> dict:
-    """
-    Return the most recently computed ensemble signals for each symbol.
-
-    Returns:
-        JSON dict of symbol → signal with score, direction, regime, components.
-    """
+    # Get cash from last state (approximate)
+    cur2 = conn.execute("SELECT SUM(size_usdt) FROM trades WHERE status='open'")
+    open_val = cur2.fetchone()[0] or 0
+    cur3 = conn.execute("SELECT COALESCE(SUM(pnl), 0) FROM trades WHERE status='closed'")
+    closed_pnl = cur3.fetchone()[0] or 0
+    portfolio = 1000.0 + closed_pnl
+    cash = portfolio - open_val
+    conn.close()
     return {
-        "signals": _last_signals,
-        "count":   len(_last_signals),
+        'status': 'running',
+        'cash': round(cash, 2),
+        'portfolio_value': round(portfolio, 2),
+        'open_positions': len(positions),
+        'drawdown_pct': max(0, (1000 - portfolio) / 1000),
+        'total_return_pct': round((portfolio - 1000) / 1000 * 100, 2),
     }
 
 
-@app.get("/health", tags=["System"])
-def health_check() -> dict:
-    """Simple health check endpoint."""
-    return {"status": "ok", "service": "MidasTouch"}
+@app.get("/positions")
+def get_positions():
+    if not os.path.exists(DB_PATH):
+        return {}
+    conn = sqlite3.connect(DB_PATH)
+    cur = conn.execute("SELECT symbol, entry_price, size_usdt, stop_loss, regime, signal_score FROM trades WHERE status='open'")
+    positions = {}
+    for row in cur.fetchall():
+        positions[row[0]] = {
+            'entry_price': row[1],
+            'size_usdt': row[2],
+            'stop_loss': row[3],
+            'regime': row[4],
+            'signal_score': row[5],
+        }
+    conn.close()
+    return positions
 
 
-@app.get("/", tags=["System"])
-def root() -> dict:
-    """API root — lists available endpoints."""
-    return {
-        "name":      "MidasTouch Dashboard API",
-        "version":   "1.0.0",
-        "endpoints": [
-            "GET /status",
-            "GET /positions",
-            "GET /trades?limit=50",
-            "GET /performance",
-            "GET /signals",
-            "GET /health",
-        ],
-    }
+@app.get("/trades")
+def get_trades(limit: int = 50):
+    if not os.path.exists(DB_PATH):
+        return []
+    conn = sqlite3.connect(DB_PATH)
+    cur = conn.execute('SELECT * FROM trades ORDER BY id DESC LIMIT ?', (limit,))
+    cols = [d[0] for d in cur.description]
+    return [dict(zip(cols, row)) for row in cur.fetchall()]
+
+
+@app.get("/performance")
+def get_performance():
+    return calculate_all()
+
+
+@app.get("/signals")
+def get_signals():
+    return _bot_state['current_signals']
+
+
+@app.get("/health")
+def health():
+    return {"status": "ok", "bot": "running"}

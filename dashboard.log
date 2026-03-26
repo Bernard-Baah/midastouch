@@ -1,0 +1,21 @@
+INFO:     Started server process [151301]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+INFO:     127.0.0.1:35198 - "GET / HTTP/1.1" 200 OK
+INFO:     146.75.146.1:19187 - "GET /trades HTTP/1.1" 200 OK
+INFO:     146.75.146.0:18579 - "GET /favicon.ico HTTP/1.1" 404 Not Found
+INFO:     146.75.146.1:18949 - "GET /status HTTP/1.1" 200 OK
+INFO:     146.75.146.0:18521 - "GET /favicon.ico HTTP/1.1" 404 Not Found
+INFO:     146.75.146.1:19068 - "GET /docs HTTP/1.1" 200 OK
+INFO:     146.75.146.1:19068 - "GET /openapi.json HTTP/1.1" 200 OK
+INFO:     146.75.146.1:18993 - "GET /trades HTTP/1.1" 200 OK
+INFO:     146.75.146.0:18519 - "GET /favicon.ico HTTP/1.1" 404 Not Found
+INFO:     146.75.146.1:19194 - "GET /docs HTTP/1.1" 200 OK
+INFO:     146.75.146.1:19194 - "GET /openapi.json HTTP/1.1" 200 OK
+INFO:     146.75.146.1:41888 - "GET /docs HTTP/1.1" 200 OK
+INFO:     146.75.146.1:41888 - "GET /openapi.json HTTP/1.1" 200 OK
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [151301]

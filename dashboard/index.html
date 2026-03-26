@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MidasTouch Dashboard</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    :root {
+      --bg: #0a0a0f;
+      --bg2: #111118;
+      --bg3: #1a1a2e;
+      --accent: #f0b429;
+      --green: #00d4aa;
+      --red: #e94560;
+      --text: #e2e8f0;
+      --muted: #666688;
+      --border: rgba(240,180,41,0.15);
+    }
+    body { background: var(--bg); color: var(--text); font-family: 'Inter', -apple-system, sans-serif; font-size: 14px; }
+    header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 18px 28px; background: var(--bg2);
+      border-bottom: 1px solid var(--border);
+    }
+    .logo { font-size: 22px; font-weight: 800; color: var(--accent); letter-spacing: 1px; }
+    .logo span { color: #fff; font-weight: 300; }
+    .status-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--green);
+      box-shadow: 0 0 8px var(--green); display: inline-block; margin-right: 6px; animation: pulse 2s infinite; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+    .live-badge { color: var(--green); font-size: 12px; font-weight: 600; }
+    .refresh-btn { background: var(--bg3); border: 1px solid var(--border); color: var(--accent);
+      padding: 7px 16px; border-radius: 8px; cursor: pointer; font-size: 12px; font-weight: 600; }
+    .refresh-btn:hover { background: rgba(240,180,41,0.1); }
+
+    .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; padding: 24px 28px 0; }
+    .card { background: var(--bg2); border: 1px solid var(--border); border-radius: 14px; padding: 18px 20px; }
+    .card-label { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
+    .card-value { font-size: 26px; font-weight: 800; color: #fff; }
+    .card-value.green { color: var(--green); }
+    .card-value.red { color: var(--red); }
+    .card-value.gold { color: var(--accent); }
+    .card-sub { font-size: 11px; color: var(--muted); margin-top: 4px; }
+
+    .section { padding: 24px 28px; }
+    .section-title { font-size: 15px; font-weight: 700; color: var(--accent); margin-bottom: 14px;
+      display: flex; align-items: center; gap: 8px; }
+
+    .positions-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+    .pos-card { background: var(--bg3); border: 1px solid rgba(0,212,170,0.2); border-radius: 12px; padding: 16px; }
+    .pos-symbol { font-size: 16px; font-weight: 800; color: #fff; margin-bottom: 8px; }
+    .pos-row { display: flex; justify-content: space-between; margin-bottom: 4px; }
+    .pos-key { color: var(--muted); font-size: 12px; }
+    .pos-val { font-size: 12px; font-weight: 600; }
+
+    table { width: 100%; border-collapse: collapse; }
+    thead th { text-align: left; padding: 10px 12px; color: var(--muted); font-size: 11px;
+      text-transform: uppercase; letter-spacing: 1px; border-bottom: 1px solid var(--border); }
+    tbody tr { border-bottom: 1px solid rgba(255,255,255,0.04); transition: background 0.2s; }
+    tbody tr:hover { background: rgba(255,255,255,0.03); }
+    tbody td { padding: 11px 12px; font-size: 13px; }
+    .badge { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 700; }
+    .badge-buy { background: rgba(0,212,170,0.15); color: var(--green); }
+    .badge-sell { background: rgba(233,69,96,0.15); color: var(--red); }
+    .badge-open { background: rgba(240,180,41,0.15); color: var(--accent); }
+    .badge-closed { background: rgba(255,255,255,0.08); color: var(--muted); }
+    .pnl-pos { color: var(--green); font-weight: 700; }
+    .pnl-neg { color: var(--red); font-weight: 700; }
+
+    .perf-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+    .perf-card { background: var(--bg3); border: 1px solid var(--border); border-radius: 12px; padding: 16px; text-align: center; }
+    .perf-val { font-size: 28px; font-weight: 800; color: var(--accent); }
+    .perf-label { font-size: 11px; color: var(--muted); margin-top: 4px; text-transform: uppercase; letter-spacing: 1px; }
+
+    .empty { text-align: center; padding: 40px; color: var(--muted); }
+    .loading { text-align: center; padding: 20px; color: var(--muted); animation: pulse 1s infinite; }
+
+    @media (max-width: 768px) {
+      .grid { grid-template-columns: repeat(2, 1fr); }
+      .positions-grid, .perf-grid { grid-template-columns: 1fr; }
+      header { flex-wrap: wrap; gap: 10px; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo">💰 Midas<span>Touch</span></div>
+  <div><span class="status-dot"></span><span class="live-badge">LIVE — Paper Trading</span></div>
+  <button class="refresh-btn" onclick="loadAll()">↻ Refresh</button>
+</header>
+
+<!-- Stats cards -->
+<div class="grid" id="stats">
+  <div class="card"><div class="card-label">Total Capital</div><div class="card-value gold" id="capital">—</div><div class="card-sub" id="return-pct">—</div></div>
+  <div class="card"><div class="card-label">Open Positions</div><div class="card-value" id="open-pos">—</div><div class="card-sub" id="cash">—</div></div>
+  <div class="card"><div class="card-label">Drawdown</div><div class="card-value red" id="drawdown">—</div><div class="card-sub">Max allowed: 15%</div></div>
+  <div class="card"><div class="card-label">Total Trades</div><div class="card-value" id="total-trades">—</div><div class="card-sub" id="win-rate-stat">—</div></div>
+</div>
+
+<!-- Open Positions -->
+<div class="section">
+  <div class="section-title">⚡ Open Positions</div>
+  <div class="positions-grid" id="positions"><div class="loading">Loading...</div></div>
+</div>
+
+<!-- Performance -->
+<div class="section">
+  <div class="section-title">📈 Performance Metrics</div>
+  <div class="perf-grid" id="perf"><div class="loading">Loading...</div></div>
+</div>
+
+<!-- Trade History -->
+<div class="section">
+  <div class="section-title">📋 Trade History</div>
+  <div style="background:var(--bg2);border:1px solid var(--border);border-radius:14px;overflow:hidden;">
+    <table>
+      <thead>
+        <tr>
+          <th>Time</th><th>Symbol</th><th>Direction</th><th>Entry</th><th>Exit</th><th>Size</th><th>P&L</th><th>Status</th><th>Reason</th>
+        </tr>
+      </thead>
+      <tbody id="trades-body"><tr><td colspan="9" class="loading">Loading...</td></tr></tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+  const API = window.location.origin;
+
+  async function fetchJSON(path) {
+    try {
+      const r = await fetch(API + path);
+      return await r.json();
+    } catch(e) { return null; }
+  }
+
+  async function loadStatus() {
+    const d = await fetchJSON('/status');
+    if (!d) return;
+    const total = d.portfolio_value || d.total_capital || 1000;
+    const ret = ((total - 1000) / 1000 * 100).toFixed(2);
+    document.getElementById('capital').textContent = '$' + total.toLocaleString('en', {minimumFractionDigits:2, maximumFractionDigits:2});
+    document.getElementById('return-pct').textContent = (ret >= 0 ? '+' : '') + ret + '% return';
+    document.getElementById('return-pct').style.color = ret >= 0 ? 'var(--green)' : 'var(--red)';
+    document.getElementById('open-pos').textContent = d.open_positions ?? '—';
+    document.getElementById('cash').textContent = 'Cash: $' + (d.cash || 0).toFixed(2);
+    const dd = ((d.drawdown_pct || 0) * 100).toFixed(1);
+    document.getElementById('drawdown').textContent = dd + '%';
+  }
+
+  async function loadPositions() {
+    const d = await fetchJSON('/positions');
+    const el = document.getElementById('positions');
+    if (!d || Object.keys(d).length === 0) {
+      el.innerHTML = '<div class="empty">No open positions</div>';
+      return;
+    }
+    el.innerHTML = Object.entries(d).map(([sym, pos]) => `
+      <div class="pos-card">
+        <div class="pos-symbol">${sym}</div>
+        <div class="pos-row"><span class="pos-key">Entry</span><span class="pos-val">$${pos.entry_price?.toFixed(2) || '—'}</span></div>
+        <div class="pos-row"><span class="pos-key">Size</span><span class="pos-val">$${pos.size_usdt?.toFixed(2) || '—'}</span></div>
+        <div class="pos-row"><span class="pos-key">Stop Loss</span><span class="pos-val" style="color:var(--red)">$${pos.stop_loss?.toFixed(2) || '—'}</span></div>
+        <div class="pos-row"><span class="pos-key">Regime</span><span class="pos-val">${pos.regime || '—'}</span></div>
+      </div>
+    `).join('');
+  }
+
+  async function loadPerformance() {
+    const d = await fetchJSON('/performance');
+    const el = document.getElementById('perf');
+    if (!d) { el.innerHTML = '<div class="empty">No data yet</div>'; return; }
+    document.getElementById('total-trades').textContent = d.total_trades || 0;
+    document.getElementById('win-rate-stat').textContent = 'Win rate: ' + (d.win_rate || 0) + '%';
+    el.innerHTML = [
+      { val: (d.win_rate || 0) + '%', label: 'Win Rate' },
+      { val: d.sharpe || 0, label: 'Sharpe Ratio' },
+      { val: d.sortino || 0, label: 'Sortino Ratio' },
+      { val: d.profit_factor || 0, label: 'Profit Factor' },
+      { val: '$' + (d.total_pnl || 0).toFixed(2), label: 'Total P&L' },
+      { val: d.total_trades || 0, label: 'Total Trades' },
+    ].map(({val, label}) => `
+      <div class="perf-card">
+        <div class="perf-val">${val}</div>
+        <div class="perf-label">${label}</div>
+      </div>
+    `).join('');
+  }
+
+  async function loadTrades() {
+    const trades = await fetchJSON('/trades?limit=50');
+    const tbody = document.getElementById('trades-body');
+    if (!trades || trades.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="9" class="empty">No trades yet</td></tr>';
+      return;
+    }
+    tbody.innerHTML = trades.map(t => {
+      const pnl = t.pnl;
+      const pnlStr = pnl != null ? (pnl >= 0 ? '+$' + pnl.toFixed(2) : '-$' + Math.abs(pnl).toFixed(2)) : '—';
+      const pnlClass = pnl == null ? '' : pnl >= 0 ? 'pnl-pos' : 'pnl-neg';
+      const time = t.timestamp ? t.timestamp.split('.')[0].replace('T',' ') : '—';
+      return `<tr>
+        <td style="color:var(--muted)">${time}</td>
+        <td style="font-weight:700">${t.symbol}</td>
+        <td><span class="badge badge-${t.direction}">${t.direction?.toUpperCase()}</span></td>
+        <td>$${t.entry_price?.toFixed(2) || '—'}</td>
+        <td>${t.exit_price ? '$' + t.exit_price.toFixed(2) : '—'}</td>
+        <td>$${t.size_usdt?.toFixed(2) || '—'}</td>
+        <td class="${pnlClass}">${pnlStr}</td>
+        <td><span class="badge badge-${t.status}">${t.status}</span></td>
+        <td style="color:var(--muted);font-size:11px">${t.reason || '—'}</td>
+      </tr>`;
+    }).join('');
+  }
+
+  async function loadAll() {
+    await Promise.all([loadStatus(), loadPositions(), loadPerformance(), loadTrades()]);
+  }
+
+  loadAll();
+  setInterval(loadAll, 30000); // Auto-refresh every 30 seconds
+</script>
+</body>
+</html>
