@@ -20,6 +20,7 @@ from config import (
 from core.short_tracker import ShortTracker
 
 from core.data_feed      import DataFeed
+from core.stock_feed     import StockFeed
 from core.indicators     import calculate_indicators
 from core.regime_detector import detect_regime
 from core.signals        import generate_ensemble_signal
@@ -63,7 +64,7 @@ def _print_header():
 # Quant loop
 # ─────────────────────────────────────────────────────────────────────────────
 
-def _run_quant_loop(feed: DataFeed, trader: PaperTrader, short_tracker) -> None:
+def _run_quant_loop(feed: DataFeed, trader: PaperTrader, short_tracker, stock_feed=None) -> None:
     """
     Multi-factor, portfolio-ranked long/short execution.
     Pipeline: DATA → FEATURES → ALPHA → ENSEMBLE → PORTFOLIO → RISK → EXECUTE
@@ -99,6 +100,30 @@ def _run_quant_loop(feed: DataFeed, trader: PaperTrader, short_tracker) -> None:
 
         except Exception as exc:
             logger.exception("Data/feature error for %s: %s", symbol, exc)
+
+    # ── 1b. Fetch stock data via Alpaca ──────────────────────────────────────
+    if stock_feed is not None:
+        from config import STOCK_SYMBOLS
+        from core.indicators import calculate_indicators as calc_ind
+        for symbol in STOCK_SYMBOLS:
+            try:
+                df = stock_feed.fetch_ohlcv(symbol, PRIMARY_TIMEFRAME, limit=200)
+                if df is None or len(df) < 20:
+                    logger.debug("%s: no stock data (market may be closed)", symbol)
+                    continue
+                df = calc_ind(df)
+                if df is None or df.empty:
+                    continue
+                df.dropna(inplace=True)
+                if df.empty:
+                    continue
+                df = add_all_features(df)
+                dfs[symbol] = df
+                price_history[symbol] = df["close"]
+                vols[symbol] = get_volatility(df)
+                logger.info("Stock %s loaded: %d bars, latest=$%.2f", symbol, len(df), df["close"].iloc[-1])
+            except Exception as exc:
+                logger.warning("Stock data error %s: %s", symbol, exc)
 
     if not dfs:
         logger.warning("No valid data — skipping loop")
@@ -239,6 +264,7 @@ def run() -> None:
     trader        = PaperTrader()
     risk          = RiskManager()
     short_tracker = ShortTracker()
+    stock_feed    = StockFeed()
     loop          = 0
 
     logger.info("Starting capital: $%.2f | symbols: %s | mode: %s",
@@ -264,7 +290,7 @@ def run() -> None:
         # ── Execute loop ─────────────────────────────────────────────────────
         try:
             if QUANT_MODE:
-                _run_quant_loop(feed, trader, short_tracker)
+                _run_quant_loop(feed, trader, short_tracker, stock_feed=stock_feed)
             else:
                 _run_legacy_loop(feed, trader, risk)
         except Exception as exc:

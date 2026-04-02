@@ -26583,3 +26583,136 @@ STOP-LOSS hit SOL/USDT price=79.2700 stop=79.4096
 2026-04-02 03:12:13,956 [INFO] core.paper_trader: BUY ETH/USDT qty=0.096594 @ 2070.5300 size=$200.00 stop=2042.3700 cash=$800.00
 2026-04-02 03:12:13,956 [INFO] midastouch.main: 📊 Capital=$1000.00  Return=+0.00%  Drawdown=0.0%  Positions=1
 2026-04-02 03:12:13,956 [INFO] midastouch.main: ⏳ Next loop in 300s
+2026-04-02 03:17:13,957 [INFO] midastouch.main: ──── Loop 2  2026-04-02 03:17:13 UTC ────
+2026-04-02 03:17:13,960 [ERROR] core.data_feed: Network error fetching BTC/USDT/1h: kucoin GET https://api.kucoin.com/api/v1/market/candles?symbol=BTC-USDT&startAt=1774379833&endAt=1775099833&type=1hour
+2026-04-02 03:17:14,426 [INFO] midastouch.main: BTC/USDT     price=$66802.70 score=+0.318  [mom=-0.27 rev=+0.80 vol=0.93 vols=0.05]
+2026-04-02 03:17:14,426 [INFO] midastouch.main: ETH/USDT     price=$2070.88 score=+0.337  [mom=-0.27 rev=+0.85 vol=0.99 vols=0.03]
+2026-04-02 03:17:14,426 [INFO] midastouch.main: SOL/USDT     price=$78.91 score=+0.236  [mom=-0.53 rev=+0.66 vol=1.00 vols=0.12]
+2026-04-02 03:17:14,428 [INFO] quant.portfolio: Portfolio | longs=['ETH/USDT'] shorts=[] (scores: {'BTC/USDT': 0.318, 'ETH/USDT': 0.337, 'SOL/USDT': 0.236})
+2026-04-02 03:17:14,428 [INFO] midastouch.main: Portfolio → LONG: ['ETH/USDT'] | SHORT: []
+2026-04-02 03:17:14,428 [INFO] midastouch.main: 📊 Capital=$1000.00  Return=+0.00%  Drawdown=0.0%  Positions=1
+2026-04-02 03:17:14,428 [INFO] midastouch.main: ⏳ Next loop in 300s
+2026-04-02 03:22:14,428 [INFO] midastouch.main: ──── Loop 3  2026-04-02 03:22:14 UTC ────
+2026-04-02 03:22:15,003 [INFO] midastouch.main: BTC/USDT     price=$66825.10 score=+0.332  [mom=-0.27 rev=+0.79 vol=0.93 vols=0.11]
+2026-04-02 03:22:15,003 [INFO] midastouch.main: ETH/USDT     price=$2071.35 score=+0.344  [mom=-0.27 rev=+0.84 vol=0.99 vols=0.06]
+2026-04-02 03:22:15,004 [INFO] midastouch.main: SOL/USDT     price=$78.93 score=+0.244  [mom=-0.53 rev=+0.66 vol=1.00 vols=0.15]
+2026-04-02 03:22:15,005 [INFO] quant.portfolio: Portfolio | longs=['ETH/USDT'] shorts=[] (scores: {'BTC/USDT': 0.332, 'ETH/USDT': 0.344, 'SOL/USDT': 0.244})
+2026-04-02 03:22:15,005 [INFO] midastouch.main: Portfolio → LONG: ['ETH/USDT'] | SHORT: []
+2026-04-02 03:22:15,005 [INFO] midastouch.main: 📊 Capital=$1000.00  Return=+0.00%  Drawdown=0.0%  Positions=1
+2026-04-02 03:22:15,005 [INFO] midastouch.main: ⏳ Next loop in 300s
+2026-04-02 03:27:15,005 [INFO] midastouch.main: ──── Loop 4  2026-04-02 03:27:15 UTC ────
+2026-04-02 03:27:15,619 [INFO] midastouch.main: BTC/USDT     price=$66862.50 score=+0.335  [mom=-0.26 rev=+0.78 vol=0.93 vols=0.13]
+2026-04-02 03:27:15,620 [INFO] midastouch.main: ETH/USDT     price=$2074.44 score=+0.346  [mom=-0.26 rev=+0.82 vol=0.99 vols=0.08]
+2026-04-02 03:27:15,620 [INFO] midastouch.main: SOL/USDT     price=$79.23 score=+0.272  [mom=-0.50 rev=+0.61 vol=1.00 vols=0.28]
+2026-04-02 03:27:15,621 [INFO] quant.portfolio: Portfolio | longs=['ETH/USDT'] shorts=[] (scores: {'BTC/USDT': 0.335, 'ETH/USDT': 0.346, 'SOL/USDT': 0.272})
+2026-04-02 03:27:15,621 [INFO] midastouch.main: Portfolio → LONG: ['ETH/USDT'] | SHORT: []
+2026-04-02 03:27:15,621 [INFO] midastouch.main: 📊 Capital=$1000.00  Return=+0.00%  Drawdown=0.0%  Positions=1
+2026-04-02 03:27:15,621 [INFO] midastouch.main: ⏳ Next loop in 300s
+2026-04-02 03:32:15,622 [INFO] midastouch.main: ──── Loop 5  2026-04-02 03:32:15 UTC ────
+2026-04-02 03:32:16,210 [INFO] midastouch.main: BTC/USDT     price=$66824.70 score=+0.339  [mom=-0.27 rev=+0.79 vol=0.93 vols=0.14]
+2026-04-02 03:32:16,210 [INFO] midastouch.main: ETH/USDT     price=$2073.01 score=+0.350  [mom=-0.27 rev=+0.83 vol=0.99 vols=0.09]
+2026-04-02 03:32:16,210 [INFO] midastouch.main: SOL/USDT     price=$79.17 score=+0.277  [mom=-0.51 rev=+0.62 vol=1.00 vols=0.29]
+2026-04-02 03:32:16,212 [INFO] quant.portfolio: Portfolio | longs=['ETH/USDT'] shorts=[] (scores: {'BTC/USDT': 0.339, 'ETH/USDT': 0.35, 'SOL/USDT': 0.277})
+2026-04-02 03:32:16,212 [INFO] midastouch.main: Portfolio → LONG: ['ETH/USDT'] | SHORT: []
+2026-04-02 03:32:16,212 [INFO] midastouch.main: 📊 Capital=$1000.00  Return=+0.00%  Drawdown=0.0%  Positions=1
+2026-04-02 03:32:16,212 [INFO] midastouch.main: ⏳ Next loop in 300s
+2026-04-02 03:37:16,212 [INFO] midastouch.main: ──── Loop 6  2026-04-02 03:37:16 UTC ────
+2026-04-02 03:37:16,797 [INFO] midastouch.main: BTC/USDT     price=$66836.20 score=+0.341  [mom=-0.26 rev=+0.79 vol=0.93 vols=0.15]
+2026-04-02 03:37:16,797 [INFO] midastouch.main: ETH/USDT     price=$2074.12 score=+0.351  [mom=-0.26 rev=+0.82 vol=0.99 vols=0.10]
+2026-04-02 03:37:16,797 [INFO] midastouch.main: SOL/USDT     price=$79.35 score=+0.283  [mom=-0.49 rev=+0.60 vol=1.00 vols=0.32]
+2026-04-02 03:37:16,799 [INFO] quant.portfolio: Portfolio | longs=['ETH/USDT'] shorts=[] (scores: {'BTC/USDT': 0.341, 'ETH/USDT': 0.351, 'SOL/USDT': 0.283})
+2026-04-02 03:37:16,799 [INFO] midastouch.main: Portfolio → LONG: ['ETH/USDT'] | SHORT: []
+2026-04-02 03:37:16,799 [INFO] midastouch.main: 📊 Capital=$1000.00  Return=+0.00%  Drawdown=0.0%  Positions=1
+2026-04-02 03:37:16,799 [INFO] midastouch.main: ⏳ Next loop in 300s
+2026-04-02 03:42:16,799 [INFO] midastouch.main: ──── Loop 7  2026-04-02 03:42:16 UTC ────
+2026-04-02 03:42:17,394 [INFO] midastouch.main: BTC/USDT     price=$66703.70 score=+0.354  [mom=-0.28 rev=+0.84 vol=0.93 vols=0.17]
+2026-04-02 03:42:17,394 [INFO] midastouch.main: ETH/USDT     price=$2065.19 score=+0.363  [mom=-0.30 rev=+0.90 vol=1.00 vols=0.12]
+2026-04-02 03:42:17,395 [INFO] midastouch.main: SOL/USDT     price=$79.16 score=+0.289  [mom=-0.51 rev=+0.62 vol=1.00 vols=0.34]
+2026-04-02 03:42:17,396 [INFO] quant.portfolio: Portfolio | longs=['ETH/USDT'] shorts=[] (scores: {'BTC/USDT': 0.354, 'ETH/USDT': 0.363, 'SOL/USDT': 0.289})
+2026-04-02 03:42:17,396 [INFO] midastouch.main: Portfolio → LONG: ['ETH/USDT'] | SHORT: []
+2026-04-02 03:42:17,396 [INFO] midastouch.main: 📊 Capital=$1000.00  Return=+0.00%  Drawdown=0.0%  Positions=1
+2026-04-02 03:42:17,396 [INFO] midastouch.main: ⏳ Next loop in 300s
+2026-04-02 03:47:17,396 [INFO] midastouch.main: ──── Loop 8  2026-04-02 03:47:17 UTC ────
+2026-04-02 03:47:17,998 [INFO] midastouch.main: BTC/USDT     price=$66584.70 score=+0.377  [mom=-0.30 rev=+0.88 vol=0.94 vols=0.24]
+2026-04-02 03:47:17,999 [INFO] midastouch.main: ETH/USDT     price=$2054.85 score=+0.403  [mom=-0.34 rev=+0.97 vol=1.00 vols=0.25]
+2026-04-02 03:47:17,999 [INFO] midastouch.main: SOL/USDT     price=$78.95 score=+0.315  [mom=-0.53 rev=+0.65 vol=1.00 vols=0.43]
+2026-04-02 03:47:18,000 [INFO] quant.portfolio: Portfolio | longs=['ETH/USDT'] shorts=[] (scores: {'BTC/USDT': 0.377, 'ETH/USDT': 0.403, 'SOL/USDT': 0.315})
+2026-04-02 03:47:18,000 [INFO] midastouch.main: Portfolio → LONG: ['ETH/USDT'] | SHORT: []
+2026-04-02 03:47:18,000 [INFO] midastouch.main: 📊 Capital=$1000.00  Return=+0.00%  Drawdown=0.0%  Positions=1
+2026-04-02 03:47:18,000 [INFO] midastouch.main: ⏳ Next loop in 300s
+2026-04-02 03:52:18,001 [INFO] midastouch.main: ──── Loop 9  2026-04-02 03:52:18 UTC ────
+2026-04-02 03:52:18,582 [INFO] midastouch.main: BTC/USDT     price=$66619.20 score=+0.380  [mom=-0.29 rev=+0.87 vol=0.93 vols=0.26]
+2026-04-02 03:52:18,582 [INFO] midastouch.main: ETH/USDT     price=$2056.36 score=+0.405  [mom=-0.34 rev=+0.96 vol=1.00 vols=0.26]
+2026-04-02 03:52:18,583 [INFO] midastouch.main: SOL/USDT     price=$79.01 score=+0.318  [mom=-0.52 rev=+0.65 vol=1.00 vols=0.45]
+2026-04-02 03:52:18,584 [INFO] quant.portfolio: Portfolio | longs=['ETH/USDT'] shorts=[] (scores: {'BTC/USDT': 0.38, 'ETH/USDT': 0.405, 'SOL/USDT': 0.318})
+2026-04-02 03:52:18,584 [INFO] midastouch.main: Portfolio → LONG: ['ETH/USDT'] | SHORT: []
+2026-04-02 03:52:18,584 [INFO] midastouch.main: 📊 Capital=$1000.00  Return=+0.00%  Drawdown=0.0%  Positions=1
+2026-04-02 03:52:18,584 [INFO] midastouch.main: ⏳ Next loop in 300s
+
+==========================================================
+  💰 MidasTouch — Paper Trading Bot  [QUANT MODE]
+==========================================================
+2026-04-02 03:53:25,400 [INFO] core.data_feed: DataFeed initialised — exchange: kucoin
+2026-04-02 03:53:25,408 [INFO] core.paper_trader: PaperTrader ready — capital=$1000.00 | db=sqlite:///data/trades.db
+2026-04-02 03:53:25,408 [INFO] midastouch.main: Starting capital: $1000.00 | symbols: ['BTC/USDT', 'ETH/USDT', 'SOL/USDT', 'BNB/USDT', 'AVAX/USDT', 'LINK/USDT'] | mode: QUANT
+2026-04-02 03:53:25,408 [INFO] midastouch.main: ──── Loop 1  2026-04-02 03:53:25 UTC ────
+2026-04-02 03:53:27,683 [INFO] midastouch.main: BTC/USDT       $66636.80   score=+0.318 [mom=-0.29 rev=+0.86 vol=0.93 vspike=0.26]
+2026-04-02 03:53:27,683 [INFO] midastouch.main: ETH/USDT       $2057.04    score=+0.339 [mom=-0.33 rev=+0.96 vol=1.00 vspike=0.26]
+2026-04-02 03:53:27,684 [INFO] midastouch.main: SOL/USDT       $79.03      score=+0.243 [mom=-0.52 rev=+0.64 vol=1.00 vspike=0.45]
+2026-04-02 03:53:27,684 [INFO] midastouch.main: BNB/USDT       $592.92     score=+0.316 [mom=-0.36 rev=+0.99 vol=0.98 vspike=0.19]
+2026-04-02 03:53:27,684 [INFO] midastouch.main: AVAX/USDT      $8.78       score=+0.291 [mom=-0.54 rev=+0.87 vol=0.82 vspike=0.56]
+2026-04-02 03:53:27,684 [INFO] midastouch.main: LINK/USDT      $8.57       score=+0.251 [mom=-0.49 rev=+0.92 vol=1.00 vspike=0.17]
+2026-04-02 03:53:27,686 [INFO] quant.portfolio: Portfolio | longs=['ETH/USDT'] shorts=[] (scores: {'BTC/USDT': 0.318, 'ETH/USDT': 0.339, 'SOL/USDT': 0.243, 'BNB/USDT': 0.316, 'AVAX/USDT': 0.291, 'LINK/USDT': 0.251})
+2026-04-02 03:53:27,686 [INFO] midastouch.main: Portfolio → LONG: ['ETH/USDT'] | SHORT: []
+2026-04-02 03:53:27,698 [INFO] core.paper_trader: BUY ETH/USDT qty=0.097227 @ 2057.0400 size=$200.00 stop=2019.0347 cash=$800.00
+2026-04-02 03:53:27,698 [INFO] midastouch.main: 📊 Capital=$1000.00  Return=+0.00%  Drawdown=0.0%  Longs=1  Shorts=0  ShortPnL=$0.00
+2026-04-02 03:53:27,698 [INFO] midastouch.main: ⏳ Next loop in 300s
+2026-04-02 03:58:27,699 [INFO] midastouch.main: ──── Loop 2  2026-04-02 03:58:27 UTC ────
+2026-04-02 03:58:27,702 [ERROR] core.data_feed: Network error fetching BTC/USDT/1h: kucoin GET https://api.kucoin.com/api/v1/market/candles?symbol=BTC-USDT&startAt=1774382307&endAt=1775102307&type=1hour
+2026-04-02 03:58:28,707 [INFO] midastouch.main: BTC/USDT       $66636.80   score=+0.318 [mom=-0.29 rev=+0.86 vol=0.93 vspike=0.26]
+2026-04-02 03:58:28,707 [INFO] midastouch.main: ETH/USDT       $2056.20    score=+0.341 [mom=-0.34 rev=+0.96 vol=1.00 vspike=0.27]
+2026-04-02 03:58:28,707 [INFO] midastouch.main: SOL/USDT       $78.99      score=+0.247 [mom=-0.52 rev=+0.65 vol=1.00 vspike=0.47]
+2026-04-02 03:58:28,707 [INFO] midastouch.main: BNB/USDT       $592.19     score=+0.319 [mom=-0.37 rev=+1.00 vol=0.99 vspike=0.20]
+2026-04-02 03:58:28,707 [INFO] midastouch.main: AVAX/USDT      $8.77       score=+0.294 [mom=-0.55 rev=+0.89 vol=0.82 vspike=0.57]
+2026-04-02 03:58:28,707 [INFO] midastouch.main: LINK/USDT      $8.57       score=+0.252 [mom=-0.49 rev=+0.92 vol=1.00 vspike=0.18]
+2026-04-02 03:58:28,709 [INFO] quant.portfolio: Portfolio | longs=['ETH/USDT'] shorts=[] (scores: {'BTC/USDT': 0.318, 'ETH/USDT': 0.341, 'SOL/USDT': 0.247, 'BNB/USDT': 0.319, 'AVAX/USDT': 0.294, 'LINK/USDT': 0.252})
+2026-04-02 03:58:28,709 [INFO] midastouch.main: Portfolio → LONG: ['ETH/USDT'] | SHORT: []
+2026-04-02 03:58:28,709 [INFO] midastouch.main: 📊 Capital=$1000.00  Return=+0.00%  Drawdown=0.0%  Longs=1  Shorts=0  ShortPnL=$0.00
+2026-04-02 03:58:28,709 [INFO] midastouch.main: ⏳ Next loop in 300s
+
+==========================================================
+  💰 MidasTouch — Paper Trading Bot  [QUANT MODE]
+==========================================================
+2026-04-02 03:59:44,989 [INFO] core.data_feed: DataFeed initialised — exchange: kucoin
+2026-04-02 03:59:44,997 [INFO] core.paper_trader: PaperTrader ready — capital=$1000.00 | db=sqlite:///data/trades.db
+2026-04-02 03:59:44,997 [INFO] midastouch.main: Starting capital: $1000.00 | symbols: ['BTC/USDT', 'ETH/USDT', 'SOL/USDT', 'BNB/USDT', 'AVAX/USDT', 'LINK/USDT'] | mode: QUANT
+2026-04-02 03:59:44,997 [INFO] midastouch.main: ──── Loop 1  2026-04-02 03:59:44 UTC ────
+2026-04-02 03:59:47,486 [INFO] core.stock_feed: Fetched 53 bars for NVDA (1h)
+2026-04-02 03:59:47,498 [INFO] midastouch.main: Stock NVDA loaded: 53 bars, latest=$175.73
+2026-04-02 03:59:47,589 [INFO] core.stock_feed: Fetched 48 bars for TSLA (1h)
+2026-04-02 03:59:47,602 [INFO] midastouch.main: Stock TSLA loaded: 48 bars, latest=$381.32
+2026-04-02 03:59:47,656 [INFO] core.stock_feed: Fetched 46 bars for AAPL (1h)
+2026-04-02 03:59:47,668 [INFO] midastouch.main: Stock AAPL loaded: 46 bars, latest=$255.43
+2026-04-02 03:59:47,755 [INFO] core.stock_feed: Fetched 51 bars for MSFT (1h)
+2026-04-02 03:59:47,768 [INFO] midastouch.main: Stock MSFT loaded: 51 bars, latest=$369.68
+2026-04-02 03:59:47,829 [INFO] core.stock_feed: Fetched 45 bars for AMZN (1h)
+2026-04-02 03:59:47,842 [INFO] midastouch.main: Stock AMZN loaded: 45 bars, latest=$210.60
+2026-04-02 03:59:47,903 [INFO] core.stock_feed: Fetched 53 bars for SPY (1h)
+2026-04-02 03:59:47,916 [INFO] midastouch.main: Stock SPY loaded: 53 bars, latest=$655.44
+2026-04-02 03:59:47,916 [INFO] midastouch.main: BTC/USDT       $66584.10   score=+0.323 [mom=-0.30 rev=+0.88 vol=0.94 vspike=0.27]
+2026-04-02 03:59:47,916 [INFO] midastouch.main: ETH/USDT       $2056.75    score=+0.341 [mom=-0.33 rev=+0.96 vol=1.00 vspike=0.27]
+2026-04-02 03:59:47,916 [INFO] midastouch.main: SOL/USDT       $79.01      score=+0.247 [mom=-0.52 rev=+0.65 vol=1.00 vspike=0.47]
+2026-04-02 03:59:47,916 [INFO] midastouch.main: BNB/USDT       $592.07     score=+0.320 [mom=-0.37 rev=+1.00 vol=1.00 vspike=0.21]
+2026-04-02 03:59:47,917 [INFO] midastouch.main: AVAX/USDT      $8.78       score=+0.294 [mom=-0.54 rev=+0.87 vol=0.82 vspike=0.57]
+2026-04-02 03:59:47,917 [INFO] midastouch.main: LINK/USDT      $8.57       score=+0.252 [mom=-0.49 rev=+0.92 vol=1.00 vspike=0.18]
+2026-04-02 03:59:47,917 [INFO] midastouch.main: NVDA           $175.73     score=+0.119 [mom=+0.52 rev=-0.25 vol=0.00 vspike=0.00]
+2026-04-02 03:59:47,917 [INFO] midastouch.main: TSLA           $381.32     score=+0.227 [mom=+0.46 rev=-0.40 vol=0.00 vspike=0.66]
+2026-04-02 03:59:47,917 [INFO] midastouch.main: AAPL           $255.43     score=+0.235 [mom=+0.35 rev=-0.37 vol=0.00 vspike=0.83]
+2026-04-02 03:59:47,917 [INFO] midastouch.main: MSFT           $369.68     score=+0.087 [mom=+0.33 rev=-0.12 vol=0.00 vspike=0.00]
+2026-04-02 03:59:47,917 [INFO] midastouch.main: AMZN           $210.60     score=+0.165 [mom=+0.37 rev=-0.28 vol=0.00 vspike=0.42]
+2026-04-02 03:59:47,917 [INFO] midastouch.main: SPY            $655.44     score=+0.046 [mom=+0.33 rev=-0.28 vol=0.00 vspike=0.00]
+2026-04-02 03:59:47,919 [INFO] quant.portfolio: Portfolio | longs=['ETH/USDT'] shorts=[] (scores: {'BTC/USDT': 0.323, 'ETH/USDT': 0.341, 'SOL/USDT': 0.247, 'BNB/USDT': 0.32, 'AVAX/USDT': 0.294, 'LINK/USDT': 0.252, 'NVDA': 0.119, 'TSLA': 0.227, 'AAPL': 0.235, 'MSFT': 0.087, 'AMZN': 0.165, 'SPY': 0.046})
+2026-04-02 03:59:47,919 [INFO] midastouch.main: Portfolio → LONG: ['ETH/USDT'] | SHORT: []
+2026-04-02 03:59:47,929 [INFO] core.paper_trader: BUY ETH/USDT qty=0.097241 @ 2056.7500 size=$200.00 stop=2018.7204 cash=$800.00
+2026-04-02 03:59:47,930 [INFO] midastouch.main: 📊 Capital=$1000.00  Return=+0.00%  Drawdown=0.0%  Longs=1  Shorts=0  ShortPnL=$0.00
+2026-04-02 03:59:47,930 [INFO] midastouch.main: ⏳ Next loop in 300s
