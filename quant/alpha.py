@@ -15,9 +15,9 @@ logger = logging.getLogger(__name__)
 
 # Configurable factor weights — tune here without touching ensemble.py
 FACTOR_WEIGHTS = {
-    "momentum":    0.30,
+    "momentum":    0.35,
     "mean_rev":    0.25,
-    "volatility":  0.20,
+    "volatility":  0.15,
     "volume":      0.25,
 }
 

@@ -14,9 +14,10 @@ from datetime import datetime, timezone
 sys.path.insert(0, os.path.dirname(__file__))
 
 from config import (
-    SYMBOLS, PRIMARY_TIMEFRAME, INITIAL_CAPITAL,
+    SYMBOLS, CRYPTO_SYMBOLS, PRIMARY_TIMEFRAME, INITIAL_CAPITAL,
     QUANT_MODE, QUANT_TOP_N, QUANT_BOTTOM_N,
 )
+from core.short_tracker import ShortTracker
 
 from core.data_feed      import DataFeed
 from core.indicators     import calculate_indicators
@@ -62,20 +63,23 @@ def _print_header():
 # Quant loop
 # ─────────────────────────────────────────────────────────────────────────────
 
-def _run_quant_loop(feed: DataFeed, trader: PaperTrader) -> None:
+def _run_quant_loop(feed: DataFeed, trader: PaperTrader, short_tracker) -> None:
     """
     Multi-factor, portfolio-ranked long/short execution.
-
-    Pipeline per loop:
-      DATA → FEATURES → ALPHA → ENSEMBLE → PORTFOLIO → RISK → EXECUTE
+    Pipeline: DATA → FEATURES → ALPHA → ENSEMBLE → PORTFOLIO → RISK → EXECUTE
     """
-    scores:        dict[str, float] = {}
-    price_history: dict            = {}
-    dfs:           dict            = {}
+    from config import CRYPTO_SYMBOLS
+    symbols = CRYPTO_SYMBOLS
 
-    # ── 1. Fetch & feature-engineer all symbols ─────────────────────────────
-    for symbol in SYMBOLS:
+    scores:        dict = {}
+    price_history: dict = {}
+    dfs:           dict = {}
+    vols:          dict = {}
+
+    # ── 1. Fetch & feature-engineer all symbols ──────────────────────────────
+    for symbol in symbols:
         try:
+            # Primary timeframe for signals
             df = feed.fetch_ohlcv(symbol, PRIMARY_TIMEFRAME, limit=200)
             if df is None or len(df) < 50:
                 logger.warning("%s: insufficient data — skipping", symbol)
@@ -91,12 +95,13 @@ def _run_quant_loop(feed: DataFeed, trader: PaperTrader) -> None:
             df = add_all_features(df)
             dfs[symbol] = df
             price_history[symbol] = df["close"]
+            vols[symbol] = get_volatility(df)
 
         except Exception as exc:
             logger.exception("Data/feature error for %s: %s", symbol, exc)
 
     if not dfs:
-        logger.warning("No valid data for any symbol — skipping loop")
+        logger.warning("No valid data — skipping loop")
         return
 
     # ── 2. Alpha extraction & ensemble scoring ───────────────────────────────
@@ -106,17 +111,13 @@ def _run_quant_loop(feed: DataFeed, trader: PaperTrader) -> None:
             score   = compute_ensemble_score(signals)
             scores[symbol] = score
             logger.info(
-                "%-12s price=$%.2f score=%+.3f  [mom=%+.2f rev=%+.2f vol=%.2f vols=%.2f]",
-                symbol,
-                df["close"].iloc[-1],
-                score,
-                signals["momentum"],
-                signals["mean_rev"],
-                signals["volatility"],
-                signals["volume"],
+                "%-14s $%-10.2f score=%+.3f [mom=%+.2f rev=%+.2f vol=%.2f vspike=%.2f]",
+                symbol, df["close"].iloc[-1], score,
+                signals["momentum"], signals["mean_rev"],
+                signals["volatility"], signals["volume"],
             )
         except Exception as exc:
-            logger.exception("Alpha/ensemble error for %s: %s", symbol, exc)
+            logger.exception("Alpha error for %s: %s", symbol, exc)
 
     # ── 3. Portfolio construction ─────────────────────────────────────────────
     longs, shorts = select_portfolio(
@@ -127,49 +128,62 @@ def _run_quant_loop(feed: DataFeed, trader: PaperTrader) -> None:
     )
     logger.info("Portfolio → LONG: %s | SHORT: %s", longs, shorts)
 
-    # ── 4. Close positions that are no longer in the portfolio ────────────────
-    open_symbols = set(trader.positions.keys())
-    target_longs = set(longs)
-
-    for sym in list(open_symbols):
-        if sym not in target_longs:
+    # ── 4. Close longs no longer in target portfolio ──────────────────────────
+    for sym in list(trader.positions.keys()):
+        if sym not in set(longs):
             price = dfs[sym]["close"].iloc[-1] if sym in dfs else None
             if price:
                 trader.execute_sell(sym, price, reason="portfolio_rebalance")
 
-    # ── 5. Open new long positions ────────────────────────────────────────────
-    for symbol in longs:
-        if symbol in trader.positions:
-            continue   # already held
-        if symbol not in dfs:
-            continue
+    # ── 5. Close shorts no longer in target ──────────────────────────────────
+    for sym in list(short_tracker.shorts.keys()):
+        if sym not in set(shorts):
+            price = dfs[sym]["close"].iloc[-1] if sym in dfs else None
+            if price:
+                short_tracker.close_short(sym, price, reason="portfolio_rebalance")
 
-        df   = dfs[symbol]
-        vol  = get_volatility(df)
-        size = size_position(trader.cash, vol)
+    # ── 6. Open new long positions ────────────────────────────────────────────
+    for symbol in longs:
+        if symbol in trader.positions or symbol not in dfs:
+            continue
+        df    = dfs[symbol]
+        vol   = vols.get(symbol, 0.02)
+        size  = size_position(trader.cash, vol)
         price = df["close"].iloc[-1]
 
-        if size >= 10 and size <= trader.cash:
-            stop = price * (1 - vol * 1.5)   # ATR-proxy stop
+        if size >= 10 and size <= trader.cash * 0.8:
+            stop = price * (1 - vol * 2.0)
             trader.execute_buy(
-                symbol=symbol,
-                size_usdt=size,
-                price=price,
-                stop_loss=stop,
-                regime=detect_regime(df),
+                symbol=symbol, size_usdt=size, price=price,
+                stop_loss=stop, regime=detect_regime(df),
                 signal_score=scores.get(symbol, 0.0),
-                reason=f"quant_long_{scores.get(symbol, 0.0):.3f}",
+                reason=f"quant_long_{scores.get(symbol, 0):.3f}",
             )
 
-    # ── 6. Short positions (paper: simulated as sell-then-track) ─────────────
-    # Note: true short execution requires margin. In paper mode we log intent.
+    # ── 7. Open new short positions ───────────────────────────────────────────
     for symbol in shorts:
-        logger.info("SHORT candidate: %s (score=%.3f) — logged only in paper mode", symbol, scores.get(symbol, 0.0))
+        if symbol in short_tracker.shorts or symbol not in dfs:
+            continue
+        df    = dfs[symbol]
+        vol   = vols.get(symbol, 0.02)
+        size  = size_position(trader.cash, vol)
+        price = df["close"].iloc[-1]
 
-    # ── 7. Check stop losses ──────────────────────────────────────────────────
+        if size >= 10:
+            stop = price * (1 + vol * 2.0)   # short stop = price RISES
+            short_tracker.open_short(
+                symbol=symbol, entry_price=price,
+                size_usdt=size, stop_loss=stop,
+                reason=f"quant_short_{scores.get(symbol, 0):.3f}",
+            )
+
+    # ── 8. Check stop losses for all positions ────────────────────────────────
     for symbol in list(trader.positions.keys()):
         if symbol in dfs:
             trader.check_stop_losses(symbol, dfs[symbol]["close"].iloc[-1])
+    for symbol in list(short_tracker.shorts.keys()):
+        if symbol in dfs:
+            short_tracker.check_stop_losses(symbol, dfs[symbol]["close"].iloc[-1])
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -221,13 +235,14 @@ def _run_legacy_loop(feed: DataFeed, trader: PaperTrader, risk: RiskManager) -> 
 def run() -> None:
     _print_header()
 
-    feed   = DataFeed()
-    trader = PaperTrader()
-    risk   = RiskManager()
-    loop   = 0
+    feed          = DataFeed()
+    trader        = PaperTrader()
+    risk          = RiskManager()
+    short_tracker = ShortTracker()
+    loop          = 0
 
     logger.info("Starting capital: $%.2f | symbols: %s | mode: %s",
-                INITIAL_CAPITAL, SYMBOLS, "QUANT" if QUANT_MODE else "LEGACY")
+                INITIAL_CAPITAL, CRYPTO_SYMBOLS if QUANT_MODE else SYMBOLS, "QUANT" if QUANT_MODE else "LEGACY")
 
     while True:
         loop += 1
@@ -249,22 +264,26 @@ def run() -> None:
         # ── Execute loop ─────────────────────────────────────────────────────
         try:
             if QUANT_MODE:
-                _run_quant_loop(feed, trader)
+                _run_quant_loop(feed, trader, short_tracker)
             else:
                 _run_legacy_loop(feed, trader, risk)
         except Exception as exc:
             logger.exception("Unhandled loop error: %s", exc)
 
         # ── Status summary ───────────────────────────────────────────────────
-        status   = trader.get_status()
-        capital  = status.get("portfolio_value", INITIAL_CAPITAL)
-        ret_pct  = (capital - INITIAL_CAPITAL) / INITIAL_CAPITAL * 100
-        dd_pct   = status.get("drawdown_pct", 0) * 100
-        n_pos    = len(trader.positions)
+        status    = trader.get_status()
+        capital   = status.get("portfolio_value", INITIAL_CAPITAL)
+        ret_pct   = (capital - INITIAL_CAPITAL) / INITIAL_CAPITAL * 100
+        dd_pct    = status.get("drawdown_pct", 0) * 100
+        n_pos     = len(trader.positions)
+        n_shorts  = len(short_tracker.shorts)
+        short_pnl = short_tracker.get_unrealized_pnl(
+            {sym: 0 for sym in short_tracker.shorts}  # prices checked per-loop above
+        )
 
         logger.info(
-            "📊 Capital=$%.2f  Return=%+.2f%%  Drawdown=%.1f%%  Positions=%d",
-            capital, ret_pct, dd_pct, n_pos,
+            "📊 Capital=$%.2f  Return=%+.2f%%  Drawdown=%.1f%%  Longs=%d  Shorts=%d  ShortPnL=$%.2f",
+            capital, ret_pct, dd_pct, n_pos, n_shorts, short_pnl,
         )
 
         if loop % 12 == 0:

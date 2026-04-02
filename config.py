@@ -5,7 +5,12 @@ All trading parameters, thresholds, and settings.
 
 # ─── Trading Config ────────────────────────────────────────────────────────────
 INITIAL_CAPITAL = 1000.0
-SYMBOLS = ['BTC/USDT', 'ETH/USDT', 'SOL/USDT']
+CRYPTO_SYMBOLS = [
+    'BTC/USDT', 'ETH/USDT', 'SOL/USDT',
+    'BNB/USDT', 'AVAX/USDT', 'LINK/USDT',
+]
+STOCK_SYMBOLS = ['NVDA', 'TSLA', 'AAPL', 'MSFT', 'AMZN', 'SPY']
+SYMBOLS = CRYPTO_SYMBOLS  # default; stocks added when Alpaca feed active
 TIMEFRAMES = ['15m', '1h', '4h']
 PRIMARY_TIMEFRAME = '1h'
 
