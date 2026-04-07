@@ -18,6 +18,7 @@ SHORT_THRESHOLD = -0.05   # Score below this → short candidate
 MAX_CORRELATION =  0.80   # Reject asset if correlated > this with existing longs
 TOP_N           =  2      # Max simultaneous longs
 BOTTOM_N        =  2      # Max simultaneous shorts
+CRYPTO_SUFFIX   = "/USDT" # Crypto symbols contain this
 
 
 def rank_assets(scores: dict[str, float]) -> pd.DataFrame:
@@ -39,29 +40,48 @@ def select_portfolio(
     price_history: Optional[dict[str, pd.Series]] = None,
     top_n: int = TOP_N,
     bottom_n: int = BOTTOM_N,
+    separate_universes: bool = True,
 ) -> tuple[list[str], list[str]]:
     """
     Select long and short candidates from ranked scores.
 
-    Args:
-        scores:        {symbol: ensemble_score}
-        price_history: {symbol: pd.Series of close prices} for correlation filter
-        top_n:         Max long positions
-        bottom_n:      Max short positions
-
-    Returns:
-        (longs, shorts) — lists of symbol strings
+    When separate_universes=True, crypto and stocks compete separately:
+    - top_n longs split: ceil(top_n/2) from crypto + floor(top_n/2) from stocks
+    - Prevents stocks (with miscalibrated vol signals) from crowding out crypto
     """
-    ranked = rank_assets(scores)
-    if ranked.empty:
+    if not scores:
         return [], []
 
-    long_candidates  = ranked[ranked["score"] >= LONG_THRESHOLD]["symbol"].tolist()
-    short_candidates = ranked[ranked["score"] <= SHORT_THRESHOLD]["symbol"].tolist()
-    short_candidates.reverse()   # worst first
+    if separate_universes:
+        crypto_scores = {s: v for s, v in scores.items() if CRYPTO_SUFFIX in s}
+        stock_scores  = {s: v for s, v in scores.items() if CRYPTO_SUFFIX not in s}
 
-    longs  = _apply_correlation_filter(long_candidates[:top_n],   price_history)
-    shorts = _apply_correlation_filter(short_candidates[:bottom_n], price_history)
+        # Select top from each universe
+        import math
+        crypto_n = math.ceil(top_n / 2)
+        stock_n  = math.floor(top_n / 2)
+
+        crypto_ranked = rank_assets(crypto_scores)
+        stock_ranked  = rank_assets(stock_scores)
+
+        crypto_longs = crypto_ranked[crypto_ranked["score"] >= LONG_THRESHOLD]["symbol"].tolist()[:crypto_n]
+        stock_longs  = stock_ranked[stock_ranked["score"] >= LONG_THRESHOLD]["symbol"].tolist()[:stock_n]
+
+        # Shorts: worst from each universe
+        crypto_shorts = crypto_ranked[crypto_ranked["score"] <= SHORT_THRESHOLD]["symbol"].tolist()
+        crypto_shorts.reverse()
+        stock_shorts = stock_ranked[stock_ranked["score"] <= SHORT_THRESHOLD]["symbol"].tolist()
+        stock_shorts.reverse()
+
+        longs  = _apply_correlation_filter(crypto_longs + stock_longs,  price_history)
+        shorts = _apply_correlation_filter((crypto_shorts + stock_shorts)[:bottom_n], price_history)
+    else:
+        ranked = rank_assets(scores)
+        long_candidates  = ranked[ranked["score"] >= LONG_THRESHOLD]["symbol"].tolist()
+        short_candidates = ranked[ranked["score"] <= SHORT_THRESHOLD]["symbol"].tolist()
+        short_candidates.reverse()
+        longs  = _apply_correlation_filter(long_candidates[:top_n],   price_history)
+        shorts = _apply_correlation_filter(short_candidates[:bottom_n], price_history)
 
     logger.info(
         "Portfolio | longs=%s shorts=%s (scores: %s)",

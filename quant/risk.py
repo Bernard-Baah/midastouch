@@ -15,6 +15,34 @@ MIN_POSITION_USDT   = 10.0    # Never open below this
 MAX_POSITION_USDT   = 200.0   # Cap per position
 MAX_DRAWDOWN_PCT    = 0.15    # 15% portfolio drawdown kill-switch
 RESERVE_PCT         = 0.20    # Keep 20% cash reserve
+STOP_LOSS_VOL_MULT  = 3.5     # Was 2.0 — wider stops to avoid premature exits
+TRAILING_STOP_PCT   = 0.06    # 6% trailing stop from peak price
+
+
+def calculate_trailing_stop(entry_price: float, peak_price: float, direction: str = "long") -> float:
+    """
+    Calculate trailing stop price based on peak price seen since entry.
+
+    For longs: stop trails below peak_price by TRAILING_STOP_PCT
+    For shorts: stop trails above trough_price by TRAILING_STOP_PCT
+
+    Args:
+        entry_price: Original entry price
+        peak_price:  Highest (long) or lowest (short) price seen since entry
+        direction:   'long' or 'short'
+
+    Returns:
+        Trailing stop price
+    """
+    if direction == "long":
+        trailing = peak_price * (1 - TRAILING_STOP_PCT)
+        # Never move stop below entry-based initial stop
+        initial_stop = entry_price * (1 - TRAILING_STOP_PCT * 1.5)
+        return max(trailing, initial_stop)
+    else:
+        trailing = peak_price * (1 + TRAILING_STOP_PCT)
+        initial_stop = entry_price * (1 + TRAILING_STOP_PCT * 1.5)
+        return min(trailing, initial_stop)
 
 
 def size_position(

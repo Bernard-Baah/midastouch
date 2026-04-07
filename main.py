@@ -16,6 +16,7 @@ sys.path.insert(0, os.path.dirname(__file__))
 from config import (
     SYMBOLS, CRYPTO_SYMBOLS, PRIMARY_TIMEFRAME, INITIAL_CAPITAL,
     QUANT_MODE, QUANT_TOP_N, QUANT_BOTTOM_N,
+    MIN_HOLD_BARS, TRAILING_STOP_ENABLED,
 )
 from core.short_tracker import ShortTracker
 
@@ -34,7 +35,7 @@ if QUANT_MODE:
     from quant.alpha     import extract_alpha_signals
     from quant.ensemble  import compute_ensemble_score
     from quant.portfolio import select_portfolio
-    from quant.risk      import size_position, check_drawdown, get_volatility
+    from quant.risk      import size_position, check_drawdown, get_volatility, calculate_trailing_stop
 
 logging.basicConfig(
     level=logging.INFO,
@@ -150,15 +151,33 @@ def _run_quant_loop(feed: DataFeed, trader: PaperTrader, short_tracker, stock_fe
         price_history=price_history,
         top_n=QUANT_TOP_N,
         bottom_n=QUANT_BOTTOM_N,
+        separate_universes=True,
     )
     logger.info("Portfolio → LONG: %s | SHORT: %s", longs, shorts)
 
-    # ── 4. Close longs no longer in target portfolio ──────────────────────────
+    # ── 4. Close longs no longer in target portfolio (with min hold time) ────
     for sym in list(trader.positions.keys()):
         if sym not in set(longs):
-            price = dfs[sym]["close"].iloc[-1] if sym in dfs else None
-            if price:
-                trader.execute_sell(sym, price, reason="portfolio_rebalance")
+            pos = trader.positions[sym]
+            # Check if held long enough
+            open_time_str = pos.get("open_time", "")
+            hold_bars = 0
+            if open_time_str:
+                try:
+                    open_dt = datetime.fromisoformat(open_time_str.replace("Z", ""))
+                    if open_dt.tzinfo is None:
+                        open_dt = open_dt.replace(tzinfo=timezone.utc)
+                    elapsed_hours = (datetime.now(timezone.utc) - open_dt).total_seconds() / 3600
+                    hold_bars = int(elapsed_hours)  # 1h bars
+                except Exception:
+                    hold_bars = MIN_HOLD_BARS  # default: allow close
+
+            if hold_bars >= MIN_HOLD_BARS:
+                price = dfs[sym]["close"].iloc[-1] if sym in dfs else None
+                if price:
+                    trader.execute_sell(sym, price, reason="portfolio_rebalance")
+            else:
+                logger.debug("%s held for %d bars — min hold not reached, keeping", sym, hold_bars)
 
     # ── 5. Close shorts no longer in target ──────────────────────────────────
     for sym in list(short_tracker.shorts.keys()):
@@ -177,7 +196,7 @@ def _run_quant_loop(feed: DataFeed, trader: PaperTrader, short_tracker, stock_fe
         price = df["close"].iloc[-1]
 
         if size >= 10 and size <= trader.cash * 0.8:
-            stop = price * (1 - vol * 2.0)
+            stop = price * (1 - vol * 3.5)  # wider stop
             trader.execute_buy(
                 symbol=symbol, size_usdt=size, price=price,
                 stop_loss=stop, regime=detect_regime(df),
@@ -202,10 +221,24 @@ def _run_quant_loop(feed: DataFeed, trader: PaperTrader, short_tracker, stock_fe
                 reason=f"quant_short_{scores.get(symbol, 0):.3f}",
             )
 
-    # ── 8. Check stop losses for all positions ────────────────────────────────
+    # ── 8. Update trailing stops + check stop losses ──────────────────────────
     for symbol in list(trader.positions.keys()):
-        if symbol in dfs:
-            trader.check_stop_losses(symbol, dfs[symbol]["close"].iloc[-1])
+        if symbol not in dfs:
+            continue
+        current_price = dfs[symbol]["close"].iloc[-1]
+        pos = trader.positions[symbol]
+
+        # Update trailing stop if enabled
+        if TRAILING_STOP_ENABLED:
+            peak = max(pos.get("peak_price", pos["entry_price"]), current_price)
+            pos["peak_price"] = peak
+            new_stop = calculate_trailing_stop(pos["entry_price"], peak, "long")
+            if new_stop > pos["stop_loss"]:
+                pos["stop_loss"] = new_stop
+                logger.debug("%s trailing stop updated to %.4f", symbol, new_stop)
+
+        trader.check_stop_losses(symbol, current_price)
+
     for symbol in list(short_tracker.shorts.keys()):
         if symbol in dfs:
             short_tracker.check_stop_losses(symbol, dfs[symbol]["close"].iloc[-1])

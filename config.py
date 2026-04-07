@@ -92,3 +92,7 @@ LOG_FORMAT = '%(asctime)s [%(levelname)s] %(name)s: %(message)s'
 QUANT_MODE = True            # Set False to fall back to legacy signal logic
 QUANT_TOP_N = 2              # Max long positions in quant mode
 QUANT_BOTTOM_N = 1           # Max short positions (0 = long-only)
+
+# ─── Trade Management ──────────────────────────────────────────────────────────
+MIN_HOLD_BARS       = 4      # Minimum bars to hold before rebalancing (4 x 1h = 4 hours)
+TRAILING_STOP_ENABLED = True  # Use trailing stops instead of fixed stops
