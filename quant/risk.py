@@ -10,9 +10,9 @@ import pandas as pd
 logger = logging.getLogger(__name__)
 
 # Configurable risk parameters
-RISK_PER_TRADE      = 0.02    # 2% of capital per trade
+RISK_PER_TRADE      = 0.01   # 1% risk per trade
 MIN_POSITION_USDT   = 10.0    # Never open below this
-MAX_POSITION_USDT   = 200.0   # Cap per position
+MAX_POSITION_USDT   = 30.0    # Max $30 per position
 MAX_DRAWDOWN_PCT    = 0.15    # 15% portfolio drawdown kill-switch
 RESERVE_PCT         = 0.20    # Keep 20% cash reserve
 STOP_LOSS_VOL_MULT  = 3.5     # Was 2.0 — wider stops to avoid premature exits
