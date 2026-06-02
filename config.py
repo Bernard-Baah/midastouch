@@ -96,3 +96,12 @@ QUANT_BOTTOM_N = 1           # Max short positions (0 = long-only)
 # ─── Trade Management ──────────────────────────────────────────────────────────
 MIN_HOLD_BARS       = 4      # Minimum bars to hold before rebalancing (4 x 1h = 4 hours)
 TRAILING_STOP_ENABLED = True  # Use trailing stops instead of fixed stops
+
+# ─── NEW STRICT RULES (v3) ─────────────────────────────────────────────────────
+QUANT_TOP_N              = 2      # Max 2 long positions at any time
+QUANT_BOTTOM_N           = 1      # Max 1 short position
+MAX_OPEN_POSITIONS       = 3      # Hard cap: never more than 3 total open positions
+MAX_CONSECUTIVE_LOSSES   = 3      # Pause new entries after 3 losses in a row
+MIN_SCORE_TO_TRADE       = 0.15   # Only enter if score > 0.15 (was 0.05 — much stricter)
+MAX_HOLD_BARS            = 48     # Force close after 48 hours regardless
+MIN_HOLD_BARS            = 6      # Hold at least 6 hours before rebalancing
